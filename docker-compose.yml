@@ -1,0 +1,57 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        HOST_USER: ${HOST_USER}
+        HOST_UID: ${HOST_UID}
+        HOST_GID: ${HOST_GID}
+    container_name: mp-php
+    working_dir: /var/www/html/app
+    volumes:
+      - ./:/var/www/html
+      - composer-cache:/home/${HOST_USER}/.composer
+    depends_on:
+      - db
+
+  web:
+    image: nginx:alpine
+    container_name: mp-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+
+  node:
+    image: node:20-alpine
+    user: "${HOST_UID}:${HOST_GID}"
+    container_name: mp-node
+    working_dir: /var/www/html/app
+    command: sh -lc "npm ci || npm install; tail -f /dev/null"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./:/var/www/html
+    depends_on:
+      - app
+
+  db:
+    image: mysql:8
+    container_name: mp-db
+    environment:
+      MYSQL_DATABASE: portfolio
+      MYSQL_USER: portfolio
+      MYSQL_PASSWORD: portfolio
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "33060:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+
+volumes:
+  dbdata:
+  composer-cache:
